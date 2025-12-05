@@ -1,28 +1,23 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker,Session
-from fastapi import Depends
-from .config import settings
+from sqlalchemy.orm import sessionmaker
+import os
 
+# ───── THIS IS THE ONLY THING THAT MATTERS ON RAILWAY ─────
+DATABASE_URL = os.getenv("DATABASE_URL")  # Railway injects this
 
-# SQLALCHEMY_DATABASE_URL = 'postgresql://<usename>:<password>@<ip-address/hostname>/<database_name'
-# SQLALCHEMY_DATABASE_URL = 'sqlite:///./sql.app.db'
-# SQLALCHEMY_DATABASE_URL = 'postgresql://postgres:123456@localhost/fastapi'
-# SQLALCHEMY_DATABASE_URL = f'postgresql://{settings.database_name}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}'
-## WRONG (you wrote this)
-# SQLALCHEMY_DATABASE_URL = f'postgresql://{settings.database_name}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}'
+# Fix postgres:// → postgresql:// (Railway uses postgres://)
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# CORRECT (copy-paste this exact line)
-SQLALCHEMY_DATABASE_URL = f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}"
+# ───── ONLY FOR LOCAL DEVELOPMENT (when no DATABASE_URL) ─────
+if not DATABASE_URL:
+    from .config import settings
+    DATABASE_URL = f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}"
 
-# SQLALCHEMY_DATABASE_URL = 'postgresql://<usename>:<password>@<ip-address/hostname>/<database_name'
-# SQLALCHEMY_DATABASE_URL = 'sqlite:///./sql.app.db'
-# SQLALCHEMY_DATABASE_URL = 'postgresql://postgres:123456@localhost/fastapi'
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL)# if splite3 add connect_args={"check_same_thread":False} 
-
-SessionLocal = sessionmaker(bind=engine, autocommit= False,autoflush= False)
-
+# ───── Create engine with the correct URL ─────
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db():
